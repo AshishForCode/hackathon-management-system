@@ -3,7 +3,8 @@ import { SubmissionService } from "@/lib/services/submission.service";
 import { requireAuth } from "@/lib/auth/session";
 import { syncRepoSchema } from "@/lib/validators/submission.schema";
 import { apiSuccess, apiError } from "@/lib/utils/api-response";
-import { AppError, ValidationError } from "@/lib/utils/errors";
+import { AppError, ValidationError, ForbiddenError } from "@/lib/utils/errors";
+import { UserRole } from "@prisma/client";
 
 export async function POST(
   req: NextRequest,
@@ -11,9 +12,27 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    await requireAuth();
+    const user = await requireAuth();
 
     const submission = await SubmissionService.getSubmissionById(id);
+
+    const isMember = submission.team.members.some((m) => m.userId === user.id);
+    const isAdmin =
+      user.role === UserRole.SUPER_ADMIN ||
+      user.role === UserRole.CAMPUS_ADMIN ||
+      user.role === UserRole.ORGANIZER;
+
+    if (!isMember && !isAdmin) {
+      throw new ForbiddenError("Only team members or administrators can trigger repo sync for this submission.");
+    }
+
+    if (
+      user.role === UserRole.CAMPUS_ADMIN &&
+      submission.hackathon.campusId &&
+      user.campusId !== submission.hackathon.campusId
+    ) {
+      throw new ForbiddenError("You are only authorized to manage hackathons for your assigned campus.");
+    }
 
     let repoUrl = submission.repoUrl;
 

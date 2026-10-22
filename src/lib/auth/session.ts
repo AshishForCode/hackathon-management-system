@@ -4,10 +4,22 @@ import { hasPermission, Permission, isAdminRole } from "./rbac";
 import { UserRole, UserStatus } from "@prisma/client";
 import { SessionUser } from "@/types";
 
+let testUserOverride: SessionUser | null | undefined = undefined;
+
+/**
+ * Configure an override user for test suites.
+ */
+export function __setTestUser(user: SessionUser | null | undefined) {
+  testUserOverride = user;
+}
+
 /**
  * Get current session user without throwing an error if unauthenticated.
  */
 export async function getCurrentUser(): Promise<SessionUser | null> {
+  if (testUserOverride !== undefined) {
+    return testUserOverride;
+  }
   const session = await auth();
   if (!session?.user) {
     return null;

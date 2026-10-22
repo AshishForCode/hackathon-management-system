@@ -3,7 +3,8 @@ import { SubmissionService } from "@/lib/services/submission.service";
 import { requireAuth } from "@/lib/auth/session";
 import { updateSubmissionSchema } from "@/lib/validators/submission.schema";
 import { apiSuccess, apiError } from "@/lib/utils/api-response";
-import { AppError } from "@/lib/utils/errors";
+import { AppError, ForbiddenError } from "@/lib/utils/errors";
+import { UserRole } from "@prisma/client";
 
 export async function GET(
   _req: NextRequest,
@@ -41,6 +42,25 @@ export async function PATCH(
     }
 
     const submission = await SubmissionService.getSubmissionById(id);
+
+    const isMember = submission.team.members.some((m) => m.userId === user.id);
+    const isAdmin =
+      user.role === UserRole.SUPER_ADMIN ||
+      user.role === UserRole.CAMPUS_ADMIN ||
+      user.role === UserRole.ORGANIZER;
+
+    if (!isMember && !isAdmin) {
+      throw new ForbiddenError("Only team members or administrators can update this submission.");
+    }
+
+    if (
+      user.role === UserRole.CAMPUS_ADMIN &&
+      submission.hackathon.campusId &&
+      user.campusId !== submission.hackathon.campusId
+    ) {
+      throw new ForbiddenError("You are only authorized to manage hackathons for your assigned campus.");
+    }
+
     const updated = await SubmissionService.saveDraft(submission.hackathonId, user, parsed.data);
     return apiSuccess(updated);
   } catch (error) {

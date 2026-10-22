@@ -11,7 +11,8 @@ export async function GET(
 ) {
   try {
     const { id: teamId } = await params;
-    const feedbacks = await EvaluationService.getTeamMentorFeedback(teamId);
+    const user = await requireAuth();
+    const feedbacks = await EvaluationService.getTeamMentorFeedback(teamId, user);
     return apiSuccess(feedbacks);
   } catch (error) {
     if (error instanceof AppError) {

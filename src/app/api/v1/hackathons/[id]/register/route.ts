@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { RegistrationService } from "@/lib/services/registration.service";
-import { requireAuth } from "@/lib/auth/session";
+import { requireAuth, requirePermission } from "@/lib/auth/session";
 import { registerForHackathonSchema } from "@/lib/validators/registration.schema";
 import { apiSuccess, apiError } from "@/lib/utils/api-response";
 import { AppError } from "@/lib/utils/errors";
@@ -28,7 +28,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const user = await requireAuth();
+    const user = await requirePermission("registration:create");
 
     const body = await req.json().catch(() => ({}));
     const parsed = registerForHackathonSchema.safeParse(body);

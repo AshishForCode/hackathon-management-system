@@ -5,13 +5,38 @@ import { updateTeamSchema } from "@/lib/validators/team.schema";
 import { apiSuccess, apiError } from "@/lib/utils/api-response";
 import { AppError } from "@/lib/utils/errors";
 
+import { UserRole } from "@prisma/client";
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    let user = null;
+    try {
+      user = await requireAuth();
+    } catch {
+      // Guest / unauthenticated visitor
+    }
+
     const team = await TeamService.getTeamDetails(id);
+    const isMember = user ? team.members.some((m) => m.userId === user.id) : false;
+    const isAdmin = user
+      ? user.role === UserRole.SUPER_ADMIN ||
+        user.role === UserRole.CAMPUS_ADMIN ||
+        user.role === UserRole.ORGANIZER
+      : false;
+
+    if (!isMember && !isAdmin) {
+      const sanitized = {
+        ...team,
+        inviteCode: undefined,
+        invites: [],
+      };
+      return apiSuccess(sanitized);
+    }
+
     return apiSuccess(team);
   } catch (error) {
     if (error instanceof AppError) {

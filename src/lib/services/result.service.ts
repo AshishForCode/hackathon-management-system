@@ -120,6 +120,10 @@ export class ResultService {
       throw new ForbiddenError("Only organizers or administrators can publish official results.");
     }
 
+    if (user.role === UserRole.CAMPUS_ADMIN && hackathon.campusId && user.campusId !== hackathon.campusId) {
+      throw new ForbiddenError("You are only authorized to manage hackathons for your assigned campus.");
+    }
+
     // Get current calculated standings
     const { entries } = await LeaderboardService.getLeaderboard(hackathon.id);
 
@@ -226,6 +230,10 @@ export class ResultService {
 
     if (!isAdmin) {
       throw new ForbiddenError("Only organizers or administrators can toggle results publication.");
+    }
+
+    if (user.role === UserRole.CAMPUS_ADMIN && hackathon.campusId && user.campusId !== hackathon.campusId) {
+      throw new ForbiddenError("You are only authorized to manage hackathons for your assigned campus.");
     }
 
     return prisma.$transaction(async (tx) => {

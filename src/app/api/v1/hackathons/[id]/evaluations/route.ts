@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { EvaluationService } from "@/lib/services/evaluation.service";
-import { requireAuth } from "@/lib/auth/session";
+import { requirePermission } from "@/lib/auth/session";
 import { apiSuccess, apiError } from "@/lib/utils/api-response";
 import { AppError } from "@/lib/utils/errors";
 import { EvaluationRound } from "@prisma/client";
@@ -11,7 +11,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const user = await requireAuth();
+    const user = await requirePermission("evaluation:read");
     const { searchParams } = new URL(req.url);
     const roundParam = searchParams.get("round") as EvaluationRound | null;
     const round = roundParam || EvaluationRound.FINAL;

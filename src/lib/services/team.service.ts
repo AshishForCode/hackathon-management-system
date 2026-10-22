@@ -12,6 +12,7 @@ import {
   TeamMemberRole,
   InviteStatus,
   NotificationType,
+  UserRole,
 } from "@prisma/client";
 import { SessionUser } from "@/types";
 import { INVITE_EXPIRY_MS } from "@/lib/utils/constants";
@@ -472,7 +473,7 @@ export class TeamService {
   static async removeMember(teamId: string, operator: SessionUser, targetUserId: string) {
     const team = await prisma.team.findUnique({
       where: { id: teamId },
-      include: { members: true },
+      include: { members: true, hackathon: true },
     });
 
     if (!team) {
@@ -485,6 +486,14 @@ export class TeamService {
 
     if (!isLeader && !isSelf && !isAdmin) {
       throw new ForbiddenError("Only team leaders or administrators can remove team members.");
+    }
+
+    if (
+      operator.role === UserRole.CAMPUS_ADMIN &&
+      team.hackathon.campusId &&
+      operator.campusId !== team.hackathon.campusId
+    ) {
+      throw new ForbiddenError("You are only authorized to manage teams for your assigned campus.");
     }
 
     if (targetUserId === team.leaderId && !isSelf) {
@@ -533,7 +542,10 @@ export class TeamService {
    * Update team settings (Name, Matchmaking status, Locked status).
    */
   static async updateTeam(teamId: string, operator: SessionUser, input: UpdateTeamInput) {
-    const team = await prisma.team.findUnique({ where: { id: teamId } });
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      include: { hackathon: true },
+    });
     if (!team) throw new NotFoundError("Team", teamId);
 
     const isLeader = team.leaderId === operator.id;
@@ -541,6 +553,14 @@ export class TeamService {
 
     if (!isLeader && !isAdmin) {
       throw new ForbiddenError("Only team leaders or administrators can update team configuration.");
+    }
+
+    if (
+      operator.role === UserRole.CAMPUS_ADMIN &&
+      team.hackathon.campusId &&
+      operator.campusId !== team.hackathon.campusId
+    ) {
+      throw new ForbiddenError("You are only authorized to manage teams for your assigned campus.");
     }
 
     return prisma.team.update({

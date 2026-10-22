@@ -127,6 +127,10 @@ export class EvaluationService {
       throw new ForbiddenError("Only organizers or administrators can configure scoring rubrics.");
     }
 
+    if (user.role === UserRole.CAMPUS_ADMIN && hackathon.campusId && user.campusId !== hackathon.campusId) {
+      throw new ForbiddenError("You are only authorized to manage hackathons for your assigned campus.");
+    }
+
     return prisma.$transaction(async (tx) => {
       // Delete existing criteria if updating
       const existing = await tx.rubric.findFirst({
@@ -189,6 +193,10 @@ export class EvaluationService {
 
     if (!hackathon) {
       throw new NotFoundError("Hackathon", hackathonIdOrSlug);
+    }
+
+    if (juryUser.role === UserRole.CAMPUS_ADMIN && hackathon.campusId && juryUser.campusId !== hackathon.campusId) {
+      throw new ForbiddenError("You are only authorized to access evaluations for your assigned campus.");
     }
 
     const submissions = await prisma.submission.findMany({
@@ -422,7 +430,38 @@ export class EvaluationService {
   /**
    * Get all mentor feedback for a team.
    */
-  static async getTeamMentorFeedback(teamId: string) {
+  static async getTeamMentorFeedback(teamId: string, user: SessionUser) {
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      include: {
+        members: true,
+        hackathon: true,
+      },
+    });
+
+    if (!team) {
+      throw new NotFoundError("Team", teamId);
+    }
+
+    const isMember = team.members.some((m) => m.userId === user.id);
+    const isMentorOrAdmin =
+      user.role === UserRole.MENTOR ||
+      user.role === UserRole.SUPER_ADMIN ||
+      user.role === UserRole.CAMPUS_ADMIN ||
+      user.role === UserRole.ORGANIZER;
+
+    if (!isMember && !isMentorOrAdmin) {
+      throw new ForbiddenError("Only team members, mentors, or administrators can view mentor feedback.");
+    }
+
+    if (
+      user.role === UserRole.CAMPUS_ADMIN &&
+      team.hackathon.campusId &&
+      user.campusId !== team.hackathon.campusId
+    ) {
+      throw new ForbiddenError("You are only authorized to access team feedback for your assigned campus.");
+    }
+
     return prisma.mentorFeedback.findMany({
       where: { teamId },
       include: {

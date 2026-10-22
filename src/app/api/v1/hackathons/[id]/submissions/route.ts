@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { SubmissionService } from "@/lib/services/submission.service";
-import { requireAuth } from "@/lib/auth/session";
+import { requireAuth, requirePermission } from "@/lib/auth/session";
 import { updateSubmissionSchema } from "@/lib/validators/submission.schema";
 import { apiSuccess, apiError, parsePagination } from "@/lib/utils/api-response";
 import { AppError } from "@/lib/utils/errors";
@@ -55,7 +55,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const user = await requireAuth();
+    const user = await requirePermission("submission:create");
 
     const body = await req.json();
     const parsed = updateSubmissionSchema.safeParse(body);

@@ -44,6 +44,10 @@ export class CertificateService {
       throw new ForbiddenError("Only administrators can generate certificates.");
     }
 
+    if (user.role === UserRole.CAMPUS_ADMIN && hackathon.campusId && user.campusId !== hackathon.campusId) {
+      throw new ForbiddenError("You are only authorized to manage hackathons for your assigned campus.");
+    }
+
     const results = await prisma.result.findMany({
       where: { hackathonId: hackathon.id },
       include: {

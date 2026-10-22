@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { TeamService } from "@/lib/services/team.service";
-import { requireAuth } from "@/lib/auth/session";
+import { requireAuth, requirePermission } from "@/lib/auth/session";
 import { createTeamSchema } from "@/lib/validators/team.schema";
 import { apiSuccess, apiError } from "@/lib/utils/api-response";
 import { AppError } from "@/lib/utils/errors";
@@ -29,7 +29,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const user = await requireAuth();
+    const user = await requirePermission("team:create");
 
     const body = await req.json();
     const parsed = createTeamSchema.safeParse(body);

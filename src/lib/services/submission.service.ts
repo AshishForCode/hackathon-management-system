@@ -113,6 +113,7 @@ export class SubmissionService {
             status: true,
             submissionDeadline: true,
             startDate: true,
+            campusId: true,
           },
         },
       },
