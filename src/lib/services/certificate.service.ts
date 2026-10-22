@@ -177,8 +177,9 @@ export class CertificateService {
    * Public certificate verification by unique certificate ID.
    */
   static async verifyCertificate(certificateId: string) {
+    const cleanId = certificateId.replace(/^JECRC-CERT-/i, "").toLowerCase();
     const cert = await prisma.certificate.findUnique({
-      where: { id: certificateId },
+      where: { id: cleanId },
       include: {
         user: {
           select: {

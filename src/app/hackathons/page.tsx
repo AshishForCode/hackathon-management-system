@@ -47,10 +47,12 @@ export default function HackathonsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCampus, setSelectedCampus] = useState("ALL");
   const [selectedStatus, setSelectedStatus] = useState("ALL");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchHackathons() {
       setLoading(true);
+      setError(null);
       try {
         const queryParams = new URLSearchParams();
         if (selectedStatus !== "ALL") queryParams.set("status", selectedStatus);
@@ -63,7 +65,7 @@ export default function HackathonsPage() {
           setHackathons(json.data);
         }
       } catch {
-        console.error("Failed to load hackathons");
+        setError("Unable to load hackathons list.");
       } finally {
         setLoading(false);
       }
@@ -104,6 +106,12 @@ export default function HackathonsPage() {
           </Link>
         )}
       </div>
+
+      {error && (
+        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-xs">
+          {error}
+        </div>
+      )}
 
       {/* Filter & Search Bar */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg backdrop-blur-xl flex flex-col md:flex-row gap-4 items-center justify-between">

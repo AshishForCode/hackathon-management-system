@@ -9,10 +9,7 @@ export async function GET(
 ) {
   try {
     const { code } = await params;
-    // Normalize code by stripping JECRC-CERT- prefix if present
-    const cleanId = code.replace(/^JECRC-CERT-/i, "").toLowerCase();
-
-    const verification = await CertificateService.verifyCertificate(cleanId);
+    const verification = await CertificateService.verifyCertificate(code);
     return apiSuccess(verification);
   } catch (error) {
     if (error instanceof AppError) {

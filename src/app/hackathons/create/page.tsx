@@ -75,7 +75,7 @@ export default function CreateHackathonPage() {
           setFormData((prev) => ({ ...prev, campusId: defaultCampusId }));
         }
       } catch {
-        console.error("Failed to load campuses");
+        setErrorMessage("Unable to fetch campus list. Please reload the page.");
       }
     }
     loadCampuses();
