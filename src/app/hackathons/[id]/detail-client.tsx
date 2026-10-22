@@ -261,13 +261,36 @@ export function HackathonDetailClient({ hackathonId }: { hackathonId: string }) 
               Project Showcase Gallery
             </Link>
 
+            <Link
+              href={`/hackathons/${hackathon.slug || hackathon.id}/teams`}
+              className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-center text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-colors"
+            >
+              Browse Teams & Matchmaking
+            </Link>
+
+            <Link
+              href={`/hackathons/${hackathon.slug || hackathon.id}/leaderboard`}
+              className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-center text-amber-300 hover:text-white bg-amber-950/30 hover:bg-amber-900/40 border border-amber-800/40 transition-colors"
+            >
+              Live Leaderboard & Standings
+            </Link>
+
             {isAdmin && (
-              <Link
-                href={`/hackathons/${hackathon.slug || hackathon.id}/registrations`}
-                className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-center text-indigo-300 hover:text-white bg-indigo-950/40 hover:bg-indigo-900/40 border border-indigo-800/40 transition-colors"
-              >
-                Manage Registrations & Export
-              </Link>
+              <>
+                <Link
+                  href={`/hackathons/${hackathon.slug || hackathon.id}/evaluate`}
+                  className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-center text-purple-300 hover:text-white bg-purple-950/30 hover:bg-purple-900/40 border border-purple-800/40 transition-colors"
+                >
+                  Jury Evaluation Console
+                </Link>
+
+                <Link
+                  href={`/hackathons/${hackathon.slug || hackathon.id}/registrations`}
+                  className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-center text-indigo-300 hover:text-white bg-indigo-950/40 hover:bg-indigo-900/40 border border-indigo-800/40 transition-colors"
+                >
+                  Manage Registrations & Export
+                </Link>
+              </>
             )}
           </div>
         </div>
