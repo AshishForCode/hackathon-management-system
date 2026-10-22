@@ -168,7 +168,20 @@ You can log in instantly using the **1-Click Demo Account Switcher** on the `/lo
 
 ---
 
-## 7. License & Credits
+## 7. Automated CI/CD Pipeline & Deployment
+
+The platform is integrated with GitHub Actions and multi-stage Docker containerization:
+* **CI Workflow**: `.github/workflows/ci.yml` runs on every push and pull request to `main`.
+* **Deployment Guide**: See [DEPLOYMENT.md](file:///c:/Users/aashi/Desktop/hackathon%20management%20system/DEPLOYMENT.md) for step-by-step instructions for **Vercel**, **Docker Compose**, and **Render/Railway**.
+
+### Spin Up Full Production Stack with Docker:
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+---
+
+## 8. License & Credits
 
 Built as part of the Centralized Hackathon Management Platform internship for **JECRC University & JECRC Foundation**.
 All rights reserved.

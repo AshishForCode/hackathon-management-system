@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  # Application Container
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hackathon-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://hackathon_user:hackathon_pass@db:5432/hackathon_db?schema=public
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=jecrc_hackathon_super_secret_jwt_key_2026_prod
+      - GOOGLE_ALLOWED_DOMAIN=@jecrcu.edu.in
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # PostgreSQL Database Container
+  db:
+    image: postgres:16-alpine
+    container_name: hackathon-db-prod
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: hackathon_db
+      POSTGRES_USER: hackathon_user
+      POSTGRES_PASSWORD: hackathon_pass
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hackathon_user -d hackathon_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_prod_data:
+    driver: local
