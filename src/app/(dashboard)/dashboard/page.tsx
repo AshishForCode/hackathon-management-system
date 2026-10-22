@@ -4,20 +4,12 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import {
-  Trophy,
   Calendar,
-  Users,
-  Award,
   PlusCircle,
   ArrowRight,
   ShieldCheck,
   Building,
-  TrendingUp,
-  FileCheck,
   Activity,
-  History,
-  Layers,
-  Sparkles,
   ExternalLink,
 } from "lucide-react";
 
@@ -104,7 +96,6 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadStats() {
       try {
-        setLoading(true);
         const res = await fetch("/api/v1/analytics/overview");
         const json = await res.json();
         if (json.success && json.data) {

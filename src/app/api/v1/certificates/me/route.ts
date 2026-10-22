@@ -1,10 +1,9 @@
-import { NextRequest } from "next/server";
 import { CertificateService } from "@/lib/services/certificate.service";
 import { requireAuth } from "@/lib/auth/session";
 import { apiSuccess, apiError } from "@/lib/utils/api-response";
 import { AppError } from "@/lib/utils/errors";
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
   try {
     const user = await requireAuth();
     const certificates = await CertificateService.getUserCertificates(user.id);

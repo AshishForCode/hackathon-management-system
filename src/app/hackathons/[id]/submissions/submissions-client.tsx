@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Code,
@@ -12,15 +12,10 @@ import {
   ExternalLink,
   Layers,
   Sparkles,
-  GitCommit,
-  Star,
-  Users,
-  Building,
   CheckCircle2,
   X,
   FileCode,
 } from "lucide-react";
-import { HackathonStatus } from "@prisma/client";
 
 interface Track {
   id: string;
@@ -77,34 +72,41 @@ export function SubmissionsClient({ hackathonId }: { hackathonId: string }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeModalItem, setActiveModalItem] = useState<SubmissionItem | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [hackRes, subRes] = await Promise.all([
-        fetch(`/api/v1/hackathons/${hackathonId}`),
-        fetch(`/api/v1/hackathons/${hackathonId}/submissions?finalOnly=false&limit=100`),
-      ]);
-
-      const hackJson = await hackRes.json();
-      if (hackJson.success && hackJson.data) {
-        setHackathonTitle(hackJson.data.title);
-        setTracks(hackJson.data.tracks || []);
-      }
-
-      const subJson = await subRes.json();
-      if (subJson.success && subJson.data) {
-        setSubmissions(subJson.data || []);
-      }
-    } catch {
-      // Handle error
-    } finally {
-      setLoading(false);
-    }
-  }, [hackathonId]);
-
   useEffect(() => {
+    let ignore = false;
+
+    async function loadData() {
+      try {
+        const [hackRes, subRes] = await Promise.all([
+          fetch(`/api/v1/hackathons/${hackathonId}`),
+          fetch(`/api/v1/hackathons/${hackathonId}/submissions?finalOnly=false&limit=100`),
+        ]);
+
+        const hackJson = await hackRes.json();
+        if (!ignore && hackJson.success && hackJson.data) {
+          setHackathonTitle(hackJson.data.title);
+          setTracks(hackJson.data.tracks || []);
+        }
+
+        const subJson = await subRes.json();
+        if (!ignore && subJson.success && subJson.data) {
+          setSubmissions(subJson.data || []);
+        }
+      } catch {
+        // Handle error
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
     loadData();
-  }, [loadData]);
+
+    return () => {
+      ignore = true;
+    };
+  }, [hackathonId]);
 
   // Filter submissions
   const filteredSubmissions = submissions.filter((item) => {

@@ -15,8 +15,8 @@ import { prisma } from "../src/lib/db/prisma";
 import { syncGitHubRepository, parseGitHubUrl } from "../src/lib/utils/github";
 import { submissionInputSchema } from "../src/lib/validators/submission.schema";
 import { registerForHackathonSchema } from "../src/lib/validators/registration.schema";
-import { createRubricSchema, submitEvaluationSchema } from "../src/lib/validators/evaluation.schema";
-import { UserRole, EvaluationRound, CertificateType } from "@prisma/client";
+import { createRubricSchema } from "../src/lib/validators/evaluation.schema";
+import { EvaluationRound } from "@prisma/client";
 
 let passedTests = 0;
 let totalTests = 0;

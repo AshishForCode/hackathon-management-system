@@ -5,7 +5,6 @@ import {
   ValidationError,
 } from "@/lib/utils/errors";
 import { LeaderboardService } from "./leaderboard.service";
-import { AssignResultsInput } from "@/lib/validators/result.schema";
 import {
   HackathonStatus,
   UserRole,

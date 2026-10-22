@@ -1,14 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
-  Download,
   Users,
   CheckCircle2,
   Clock,
-  XCircle,
   AlertCircle,
   ArrowLeft,
   Search,
@@ -32,7 +30,7 @@ interface RegistrationItem {
   id: string;
   status: RegistrationStatus;
   registeredAt: string;
-  customFields?: Record<string, any>;
+  customFields?: Record<string, unknown>;
   user: {
     id: string;
     name: string;
@@ -61,29 +59,38 @@ export function RegistrationsClient({ hackathonId }: { hackathonId: string }) {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const fetchRegistrations = useCallback(async () => {
-    try {
-      setLoading(true);
-      const url =
-        statusFilter && statusFilter !== "ALL"
-          ? `/api/v1/hackathons/${hackathonId}/registrations?status=${statusFilter}&limit=100`
-          : `/api/v1/hackathons/${hackathonId}/registrations?limit=100`;
-
-      const res = await fetch(url);
-      const json = await res.json();
-      if (json.success && json.data) {
-        setData(json.data);
-      }
-    } catch {
-      setMessage({ type: "error", text: "Failed to load registrations." });
-    } finally {
-      setLoading(false);
-    }
-  }, [hackathonId, statusFilter]);
-
   useEffect(() => {
+    let ignore = false;
+
+    async function fetchRegistrations() {
+      try {
+        const url =
+          statusFilter && statusFilter !== "ALL"
+            ? `/api/v1/hackathons/${hackathonId}/registrations?status=${statusFilter}&limit=100`
+            : `/api/v1/hackathons/${hackathonId}/registrations?limit=100`;
+
+        const res = await fetch(url);
+        const json = await res.json();
+        if (!ignore && json.success && json.data) {
+          setData(json.data);
+        }
+      } catch {
+        if (!ignore) {
+          setMessage({ type: "error", text: "Failed to load registrations." });
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
     fetchRegistrations();
-  }, [fetchRegistrations]);
+
+    return () => {
+      ignore = true;
+    };
+  }, [hackathonId, statusFilter]);
 
   const handleStatusChange = async (regId: string, newStatus: RegistrationStatus) => {
     setUpdatingId(regId);

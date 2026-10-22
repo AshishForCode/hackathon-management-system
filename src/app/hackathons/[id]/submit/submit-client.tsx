@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
-  Code,
   Video,
-  FileText,
   Upload,
   CheckCircle2,
   AlertCircle,
@@ -82,7 +79,6 @@ interface HackathonMeta {
 }
 
 export function SubmitClient({ hackathonId }: { hackathonId: string }) {
-  const router = useRouter();
   const { data: session } = useSession();
   const user = session?.user;
 
@@ -109,46 +105,55 @@ export function SubmitClient({ hackathonId }: { hackathonId: string }) {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [hackathonRes, subRes] = await Promise.all([
-        fetch(`/api/v1/hackathons/${hackathonId}`),
-        fetch(`/api/v1/hackathons/${hackathonId}/submissions?mine=true`),
-      ]);
+  useEffect(() => {
+    let ignore = false;
 
-      const hackathonJson = await hackathonRes.json();
-      if (hackathonJson.success) {
-        setHackathon(hackathonJson.data);
-      }
+    async function loadData() {
+      try {
+        const [hackathonRes, subRes] = await Promise.all([
+          fetch(`/api/v1/hackathons/${hackathonId}`),
+          fetch(`/api/v1/hackathons/${hackathonId}/submissions?mine=true`),
+        ]);
 
-      if (subRes.ok) {
-        const subJson = await subRes.json();
-        if (subJson.success && subJson.data) {
-          const { submission: existingSub, team: userTeam } = subJson.data;
-          setTeam(userTeam);
-          if (existingSub) {
-            setSubmission(existingSub);
-            setTitle(existingSub.title || "");
-            setTrackId(existingSub.trackId || "");
-            setTechStack(existingSub.techStack || "");
-            setDescription(existingSub.description || "");
-            setDemoVideoUrl(existingSub.demoVideoUrl || "");
-            setPresentationUrl(existingSub.presentationUrl || "");
-            setRepoUrl(existingSub.repoUrl || "");
+        const hackathonJson = await hackathonRes.json();
+        if (!ignore && hackathonJson.success) {
+          setHackathon(hackathonJson.data);
+        }
+
+        if (subRes.ok) {
+          const subJson = await subRes.json();
+          if (!ignore && subJson.success && subJson.data) {
+            const { submission: existingSub, team: userTeam } = subJson.data;
+            setTeam(userTeam);
+            if (existingSub) {
+              setSubmission(existingSub);
+              setTitle(existingSub.title || "");
+              setTrackId(existingSub.trackId || "");
+              setTechStack(existingSub.techStack || "");
+              setDescription(existingSub.description || "");
+              setDemoVideoUrl(existingSub.demoVideoUrl || "");
+              setPresentationUrl(existingSub.presentationUrl || "");
+              setRepoUrl(existingSub.repoUrl || "");
+            }
           }
         }
+      } catch {
+        if (!ignore) {
+          setMessage({ type: "error", text: "Failed to load submission data." });
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
       }
-    } catch {
-      setMessage({ type: "error", text: "Failed to load submission data." });
-    } finally {
-      setLoading(false);
     }
-  }, [hackathonId]);
 
-  useEffect(() => {
     loadData();
-  }, [loadData]);
+
+    return () => {
+      ignore = true;
+    };
+  }, [hackathonId]);
 
   // Handle Presentation File Upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -627,7 +632,7 @@ export function SubmitClient({ hackathonId }: { hackathonId: string }) {
                     Repository Languages
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    {Object.entries(snapshot.languages).map(([lang, bytes]) => (
+                    {Object.keys(snapshot.languages).map((lang) => (
                       <span
                         key={lang}
                         className="text-xs px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-mono"

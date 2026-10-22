@@ -15,8 +15,6 @@ import {
   Sliders,
   Save,
   MessageSquare,
-  Sparkles,
-  Building,
   FileCode,
   Scale,
 } from "lucide-react";
@@ -85,6 +83,7 @@ export function EvaluateClient({ hackathonId }: { hackathonId: string }) {
   const [rubric, setRubric] = useState<Rubric | null>(null);
   const [submissions, setSubmissions] = useState<SubmissionQueueItem[]>([]);
   const [selectedSubId, setSelectedSubId] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Evaluation Form State
   const [scores, setScores] = useState<Record<string, number>>({});
@@ -94,66 +93,73 @@ export function EvaluateClient({ hackathonId }: { hackathonId: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [rubricRes, queueRes] = await Promise.all([
-        fetch(`/api/v1/hackathons/${hackathonId}/rubrics`),
-        fetch(`/api/v1/hackathons/${hackathonId}/evaluations`),
-      ]);
+  const populateSubmissionForm = useCallback(
+    (sub: SubmissionQueueItem, activeRubric: Rubric | null) => {
+      setSelectedSubId(sub.id);
+      const initialScores: Record<string, number> = {};
+      const initialComments: Record<string, string> = {};
 
-      const rubricJson = await rubricRes.json();
-      if (rubricJson.success && rubricJson.data) {
-        setRubric(rubricJson.data);
+      if (sub.myEvaluation) {
+        sub.myEvaluation.scores.forEach((sc) => {
+          initialScores[sc.criterionId] = sc.score;
+          if (sc.comment) initialComments[sc.criterionId] = sc.comment;
+        });
+        setOverallComments(sub.myEvaluation.comments || "");
+        setIsLocked(sub.myEvaluation.isLocked);
+      } else if (activeRubric) {
+        activeRubric.criteria.forEach((c) => {
+          initialScores[c.id] = Math.round(c.maxScore / 2);
+        });
+        setOverallComments("");
+        setIsLocked(false);
       }
 
-      const queueJson = await queueRes.json();
-      if (queueJson.success && queueJson.data) {
-        const queue: SubmissionQueueItem[] = queueJson.data || [];
-        setSubmissions(queue);
-        if (queue.length > 0 && !selectedSubId) {
-          setSelectedSubId(queue[0].id);
+      setScores(initialScores);
+      setScoreComments(initialComments);
+    },
+    []
+  );
+
+  useEffect(() => {
+    let ignore = false;
+    async function loadData() {
+      try {
+        const [rubricRes, queueRes] = await Promise.all([
+          fetch(`/api/v1/hackathons/${hackathonId}/rubrics`),
+          fetch(`/api/v1/hackathons/${hackathonId}/evaluations`),
+        ]);
+
+        let loadedRubric: Rubric | null = null;
+        const rubricJson = await rubricRes.json();
+        if (!ignore && rubricJson.success && rubricJson.data) {
+          loadedRubric = rubricJson.data;
+          setRubric(loadedRubric);
+        }
+
+        const queueJson = await queueRes.json();
+        if (!ignore && queueJson.success && queueJson.data) {
+          const queue: SubmissionQueueItem[] = queueJson.data || [];
+          setSubmissions(queue);
+          if (queue.length > 0 && !selectedSubId) {
+            populateSubmissionForm(queue[0], loadedRubric);
+          }
+        }
+      } catch {
+        if (!ignore) {
+          setMessage({ type: "error", text: "Failed to load evaluation workspace." });
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
         }
       }
-    } catch {
-      setMessage({ type: "error", text: "Failed to load evaluation workspace." });
-    } finally {
-      setLoading(false);
     }
-  }, [hackathonId, selectedSubId]);
 
-  useEffect(() => {
     loadData();
-  }, [loadData]);
-
-  // When selected submission changes, populate scores from existing evaluation if any
-  useEffect(() => {
-    if (!selectedSubId || !rubric) return;
-    const selected = submissions.find((s) => s.id === selectedSubId);
-    if (!selected) return;
-
-    const initialScores: Record<string, number> = {};
-    const initialComments: Record<string, string> = {};
-
-    if (selected.myEvaluation) {
-      selected.myEvaluation.scores.forEach((sc) => {
-        initialScores[sc.criterionId] = sc.score;
-        if (sc.comment) initialComments[sc.criterionId] = sc.comment;
-      });
-      setOverallComments(selected.myEvaluation.comments || "");
-      setIsLocked(selected.myEvaluation.isLocked);
-    } else {
-      // Default to mid-scale score
-      rubric.criteria.forEach((c) => {
-        initialScores[c.id] = Math.round(c.maxScore / 2);
-      });
-      setOverallComments("");
-      setIsLocked(false);
-    }
-
-    setScores(initialScores);
-    setScoreComments(initialComments);
-  }, [selectedSubId, rubric, submissions]);
+    return () => {
+      ignore = true;
+    };
+  }, [hackathonId, selectedSubId, populateSubmissionForm, refreshKey]);
 
   // Compute live normalized score (0 - 100)
   const calculateLiveScore = () => {
@@ -207,7 +213,7 @@ export function EvaluateClient({ hackathonId }: { hackathonId: string }) {
           type: "success",
           text: `Evaluation successfully saved! Total score: ${json.data.totalScore}/100.`,
         });
-        await loadData();
+        setRefreshKey((k) => k + 1);
       } else {
         setMessage({ type: "error", text: json.error?.message || "Failed to submit evaluation." });
       }
@@ -320,7 +326,7 @@ export function EvaluateClient({ hackathonId }: { hackathonId: string }) {
               return (
                 <div
                   key={sub.id}
-                  onClick={() => setSelectedSubId(sub.id)}
+                  onClick={() => populateSubmissionForm(sub, rubric)}
                   className={`p-4 rounded-2xl border cursor-pointer transition-all ${
                     isSelected
                       ? "bg-indigo-600/15 border-indigo-500 text-white shadow-lg shadow-indigo-500/10"

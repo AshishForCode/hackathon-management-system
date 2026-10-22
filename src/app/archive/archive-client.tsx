@@ -1,21 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
 import {
   Archive,
   Search,
-  Filter,
   Trophy,
   Crown,
   FileCode,
   Video,
   FileText,
-  Building,
-  Sparkles,
-  ExternalLink,
   Layers,
-  Star,
   GitCommit,
 } from "lucide-react";
 
@@ -62,7 +56,7 @@ interface ProjectArchiveItem {
     commits: number;
     stars: number;
     contributors: number;
-    languages: any;
+    languages: Record<string, number> | null;
   } | null;
 }
 
@@ -79,38 +73,47 @@ export function ArchiveClient() {
 
   // Filters
   const [search, setSearch] = useState("");
+  const [activeSearch, setActiveSearch] = useState("");
   const [selectedCampus, setSelectedCampus] = useState("ALL");
   const [selectedHackathon, setSelectedHackathon] = useState("ALL");
   const [winnersOnly, setWinnersOnly] = useState(false);
 
-  const loadArchive = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (selectedCampus !== "ALL") params.set("campus", selectedCampus);
-      if (selectedHackathon !== "ALL") params.set("hackathonId", selectedHackathon);
-      if (winnersOnly) params.set("winnersOnly", "true");
-      if (search.trim()) params.set("search", search.trim());
-
-      const res = await fetch(`/api/v1/archive?${params.toString()}`);
-      const json = await res.json();
-      if (json.success && json.data) {
-        setData(json.data);
-      }
-    } catch {
-      // Handle error
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedCampus, selectedHackathon, winnersOnly, search]);
-
   useEffect(() => {
-    loadArchive();
-  }, [loadArchive]);
+    let ignore = false;
+
+    async function fetchArchive() {
+      try {
+        const params = new URLSearchParams();
+        if (selectedCampus !== "ALL") params.set("campus", selectedCampus);
+        if (selectedHackathon !== "ALL") params.set("hackathonId", selectedHackathon);
+        if (winnersOnly) params.set("winnersOnly", "true");
+        if (activeSearch.trim()) params.set("search", activeSearch.trim());
+
+        const res = await fetch(`/api/v1/archive?${params.toString()}`);
+        const json = await res.json();
+        if (!ignore && json.success && json.data) {
+          setData(json.data);
+        }
+      } catch {
+        // Handle error
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
+    fetchArchive();
+
+    return () => {
+      ignore = true;
+    };
+  }, [selectedCampus, selectedHackathon, winnersOnly, activeSearch]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    loadArchive();
+    setLoading(true);
+    setActiveSearch(search);
   };
 
   const projects = data?.projects || [];

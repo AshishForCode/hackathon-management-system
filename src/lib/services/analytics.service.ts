@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { HackathonStatus, UserRole, RegistrationStatus } from "@prisma/client";
+import { HackathonStatus, UserRole } from "@prisma/client";
 import { SessionUser } from "@/types";
 
 export class AnalyticsService {

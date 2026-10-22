@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
   Calendar,
@@ -14,11 +13,7 @@ import {
   ArrowLeft,
   Sparkles,
   Shirt,
-  Utensils,
   Code,
-  Globe,
-  HelpCircle,
-  FileText,
 } from "lucide-react";
 import { StatusBadge } from "@/components/hackathon/status-badge";
 import { HackathonStatus, RegistrationStatus } from "@prisma/client";
@@ -53,11 +48,10 @@ interface UserRegistration {
   id: string;
   status: RegistrationStatus;
   registeredAt: string;
-  customFields?: Record<string, any>;
+  customFields?: Record<string, unknown>;
 }
 
 export function RegisterClient({ hackathonId }: { hackathonId: string }) {
-  const router = useRouter();
   const { data: session, status: authStatus } = useSession();
   const user = session?.user;
 
@@ -83,7 +77,6 @@ export function RegisterClient({ hackathonId }: { hackathonId: string }) {
   useEffect(() => {
     async function init() {
       try {
-        setLoading(true);
         const [hackathonRes, regRes] = await Promise.all([
           fetch(`/api/v1/hackathons/${hackathonId}`),
           fetch(`/api/v1/hackathons/${hackathonId}/register`),

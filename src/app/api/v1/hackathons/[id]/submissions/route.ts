@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { SubmissionService } from "@/lib/services/submission.service";
 import { requireAuth } from "@/lib/auth/session";
-import { submissionInputSchema, updateSubmissionSchema } from "@/lib/validators/submission.schema";
+import { updateSubmissionSchema } from "@/lib/validators/submission.schema";
 import { apiSuccess, apiError, parsePagination } from "@/lib/utils/api-response";
 import { AppError } from "@/lib/utils/errors";
 

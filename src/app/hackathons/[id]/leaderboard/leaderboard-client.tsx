@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Award,
@@ -8,13 +8,9 @@ import {
   Trophy,
   Medal,
   ArrowLeft,
-  Building,
   Video,
   FileCode,
-  Sparkles,
-  ExternalLink,
   Filter,
-  Users,
 } from "lucide-react";
 
 interface LeaderboardEntry {
@@ -60,28 +56,33 @@ export function LeaderboardClient({ hackathonId }: { hackathonId: string }) {
   const [selectedCampus, setSelectedCampus] = useState<string>("ALL");
   const [selectedTrack, setSelectedTrack] = useState<string>("ALL");
 
-  const loadLeaderboard = useCallback(async () => {
-    try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      if (selectedCampus !== "ALL") params.set("campus", selectedCampus);
-      if (selectedTrack !== "ALL") params.set("trackId", selectedTrack);
-
-      const res = await fetch(`/api/v1/hackathons/${hackathonId}/leaderboard?${params.toString()}`);
-      const json = await res.json();
-      if (json.success && json.data) {
-        setData(json.data);
-      }
-    } catch {
-      // Error handling
-    } finally {
-      setLoading(false);
-    }
-  }, [hackathonId, selectedCampus, selectedTrack]);
-
   useEffect(() => {
+    let ignore = false;
+    async function loadLeaderboard() {
+      try {
+        const params = new URLSearchParams();
+        if (selectedCampus !== "ALL") params.set("campus", selectedCampus);
+        if (selectedTrack !== "ALL") params.set("trackId", selectedTrack);
+
+        const res = await fetch(`/api/v1/hackathons/${hackathonId}/leaderboard?${params.toString()}`);
+        const json = await res.json();
+        if (!ignore && json.success && json.data) {
+          setData(json.data);
+        }
+      } catch {
+        // Error handling
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
     loadLeaderboard();
-  }, [loadLeaderboard]);
+    return () => {
+      ignore = true;
+    };
+  }, [hackathonId, selectedCampus, selectedTrack]);
 
   const entries = data?.entries || [];
   const top1 = entries[0];

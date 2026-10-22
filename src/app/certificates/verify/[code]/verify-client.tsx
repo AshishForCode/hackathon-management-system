@@ -4,17 +4,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ShieldCheck,
-  Award,
-  Calendar,
-  Building,
-  GraduationCap,
   Printer,
-  ExternalLink,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
-  ArrowLeft,
-  FileCheck,
 } from "lucide-react";
 
 interface VerificationData {
@@ -53,7 +45,6 @@ export function VerifyClient({ code }: { code: string }) {
   useEffect(() => {
     async function verify() {
       try {
-        setLoading(true);
         const res = await fetch(`/api/v1/certificates/verify/${code}`);
         const json = await res.json();
         if (json.success && json.data) {

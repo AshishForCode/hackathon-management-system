@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
@@ -8,18 +8,11 @@ import {
   Crown,
   Medal,
   Award,
-  Sparkles,
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
-  FileCode,
-  Video,
   ExternalLink,
   ShieldCheck,
-  Send,
-  Users,
-  Building,
-  GraduationCap,
 } from "lucide-react";
 
 interface CertificateItem {
@@ -85,29 +78,39 @@ export function ResultsClient({ hackathonId }: { hackathonId: string }) {
   const [hackathon, setHackathon] = useState<HackathonMeta | null>(null);
   const [results, setResults] = useState<ResultItem[]>([]);
   const [isPublished, setIsPublished] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`/api/v1/hackathons/${hackathonId}/results`);
-      const json = await res.json();
-      if (json.success && json.data) {
-        setHackathon(json.data.hackathon);
-        setResults(json.data.results || []);
-        setIsPublished(json.data.isPublished);
-      }
-    } catch {
-      setMessage({ type: "error", text: "Failed to load results announcement." });
-    } finally {
-      setLoading(false);
-    }
-  }, [hackathonId]);
-
   useEffect(() => {
+    let ignore = false;
+
+    async function loadData() {
+      try {
+        const res = await fetch(`/api/v1/hackathons/${hackathonId}/results`);
+        const json = await res.json();
+        if (!ignore && json.success && json.data) {
+          setHackathon(json.data.hackathon);
+          setResults(json.data.results || []);
+          setIsPublished(json.data.isPublished);
+        }
+      } catch {
+        if (!ignore) {
+          setMessage({ type: "error", text: "Failed to load results announcement." });
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
     loadData();
-  }, [loadData]);
+
+    return () => {
+      ignore = true;
+    };
+  }, [hackathonId, refreshKey]);
 
   // Admin: Generate results from leaderboard
   const handleGenerateResults = async (publish: boolean) => {
@@ -127,7 +130,7 @@ export function ResultsClient({ hackathonId }: { hackathonId: string }) {
           type: "success",
           text: `Official results ${publish ? "published live" : "generated as draft"}!`,
         });
-        await loadData();
+        setRefreshKey((k) => k + 1);
       } else {
         setMessage({ type: "error", text: json.error?.message || "Failed to generate results." });
       }
@@ -155,7 +158,7 @@ export function ResultsClient({ hackathonId }: { hackathonId: string }) {
           type: "success",
           text: `Successfully issued ${json.data.count} verified digital certificates!`,
         });
-        await loadData();
+        setRefreshKey((k) => k + 1);
       } else {
         setMessage({ type: "error", text: json.error?.message || "Failed to issue certificates." });
       }
@@ -206,7 +209,7 @@ export function ResultsClient({ hackathonId }: { hackathonId: string }) {
               Winners & Certified Rankings
             </h1>
             <p className="text-sm text-slate-300 mt-2">
-              Celebrating top innovation and technical achievements across JECRC campuses.
+              {hackathon?.title ? `Celebrating top achievements in ${hackathon.title}` : "Celebrating top innovation and technical achievements across JECRC campuses."}
             </p>
           </div>
 

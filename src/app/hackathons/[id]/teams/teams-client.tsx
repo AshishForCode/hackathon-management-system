@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
   Users,
-  Shield,
   Crown,
   UserPlus,
   Copy,
@@ -120,45 +119,57 @@ export function TeamsClient({ hackathonId }: { hackathonId: string }) {
 
   // Status feedback
   const [actionLoading, setActionLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const loadData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const [regRes, teamRes, boardRes] = await Promise.all([
-        fetch(`/api/v1/hackathons/${hackathonId}/register`),
-        fetch(`/api/v1/hackathons/${hackathonId}/teams`),
-        fetch(`/api/v1/hackathons/${hackathonId}/matchmaking`),
-      ]);
-
-      if (regRes.ok) {
-        const regJson = await regRes.json();
-        setIsRegistered(Boolean(regJson.success && regJson.data));
-      }
-
-      if (teamRes.ok) {
-        const teamJson = await teamRes.json();
-        if (teamJson.success) {
-          setMyTeam(teamJson.data);
-        }
-      }
-
-      if (boardRes.ok) {
-        const boardJson = await boardRes.json();
-        if (boardJson.success) {
-          setMatchmakingTeams(boardJson.data || []);
-        }
-      }
-    } catch {
-      setMessage({ type: "error", text: "Failed to load team data." });
-    } finally {
-      setLoading(false);
-    }
-  }, [hackathonId]);
-
   useEffect(() => {
+    let ignore = false;
+
+    async function loadData() {
+      try {
+        const [regRes, teamRes, boardRes] = await Promise.all([
+          fetch(`/api/v1/hackathons/${hackathonId}/register`),
+          fetch(`/api/v1/hackathons/${hackathonId}/teams`),
+          fetch(`/api/v1/hackathons/${hackathonId}/matchmaking`),
+        ]);
+
+        if (regRes.ok) {
+          const regJson = await regRes.json();
+          if (!ignore) {
+            setIsRegistered(Boolean(regJson.success && regJson.data));
+          }
+        }
+
+        if (teamRes.ok) {
+          const teamJson = await teamRes.json();
+          if (!ignore && teamJson.success) {
+            setMyTeam(teamJson.data);
+          }
+        }
+
+        if (boardRes.ok) {
+          const boardJson = await boardRes.json();
+          if (!ignore && boardJson.success) {
+            setMatchmakingTeams(boardJson.data || []);
+          }
+        }
+      } catch {
+        if (!ignore) {
+          setMessage({ type: "error", text: "Failed to load team data." });
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
     loadData();
-  }, [loadData]);
+
+    return () => {
+      ignore = true;
+    };
+  }, [hackathonId, refreshKey]);
 
   const handleSearchMatchmaking = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,7 +213,7 @@ export function TeamsClient({ hackathonId }: { hackathonId: string }) {
         setMessage({ type: "success", text: `Team "${createName}" formed successfully!` });
         setCreateName("");
         setCreateSkills("");
-        await loadData();
+        setRefreshKey((k) => k + 1);
       } else {
         setMessage({ type: "error", text: json.error?.message || "Failed to create team." });
       }
@@ -231,7 +242,7 @@ export function TeamsClient({ hackathonId }: { hackathonId: string }) {
       if (json.success) {
         setMessage({ type: "success", text: "You have joined the team successfully!" });
         setJoinCode("");
-        await loadData();
+        setRefreshKey((k) => k + 1);
       } else {
         setMessage({ type: "error", text: json.error?.message || "Failed to join team." });
       }
@@ -260,7 +271,7 @@ export function TeamsClient({ hackathonId }: { hackathonId: string }) {
       if (json.success) {
         setMessage({ type: "success", text: `Invitation dispatched to ${inviteEmail}!` });
         setInviteEmail("");
-        await loadData();
+        setRefreshKey((k) => k + 1);
       } else {
         setMessage({ type: "error", text: json.error?.message || "Failed to send invitation." });
       }
@@ -289,7 +300,7 @@ export function TeamsClient({ hackathonId }: { hackathonId: string }) {
           type: "success",
           text: myTeam.locked ? "Roster unlocked." : "Roster locked for submissions!",
         });
-        await loadData();
+        setRefreshKey((k) => k + 1);
       } else {
         setMessage({ type: "error", text: json.error?.message || "Failed to toggle lock." });
       }
@@ -320,7 +331,7 @@ export function TeamsClient({ hackathonId }: { hackathonId: string }) {
             ? "Team is now visible on the Matchmaking Board!"
             : "Team hidden from Matchmaking Board.",
         });
-        await loadData();
+        setRefreshKey((k) => k + 1);
       } else {
         setMessage({ type: "error", text: json.error?.message || "Failed to update status." });
       }
@@ -352,7 +363,7 @@ export function TeamsClient({ hackathonId }: { hackathonId: string }) {
           type: "success",
           text: isSelf ? "You have left the team." : "Member removed.",
         });
-        await loadData();
+        setRefreshKey((k) => k + 1);
       } else {
         setMessage({ type: "error", text: json.error?.message || "Failed to remove member." });
       }

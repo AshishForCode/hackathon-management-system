@@ -2,7 +2,6 @@ import { prisma } from "@/lib/db/prisma";
 import {
   NotFoundError,
   ForbiddenError,
-  ValidationError,
 } from "@/lib/utils/errors";
 import {
   CertificateType,

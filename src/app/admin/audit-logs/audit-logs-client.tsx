@@ -1,16 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import {
-  ShieldAlert,
   History,
-  Search,
   Filter,
   ArrowLeft,
   X,
-  Code,
   AlertCircle,
   Eye,
 } from "lucide-react";
@@ -20,8 +17,8 @@ interface AuditLogItem {
   action: string;
   entity: string;
   entityId: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   ipAddress: string | null;
   createdAt: string;
   user: {
@@ -44,30 +41,35 @@ export function AuditLogsClient() {
   const [actionFilter, setActionFilter] = useState("ALL");
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
 
-  const fetchLogs = useCallback(async () => {
-    try {
-      setLoading(true);
-      const url =
-        actionFilter && actionFilter !== "ALL"
-          ? `/api/v1/audit-logs?action=${actionFilter}&pageSize=50`
-          : `/api/v1/audit-logs?pageSize=50`;
-
-      const res = await fetch(url);
-      const json = await res.json();
-      if (json.success && json.data) {
-        setLogs(json.data);
-        if (json.meta) setTotal(json.meta.total);
-      }
-    } catch {
-      // Error handling
-    } finally {
-      setLoading(false);
-    }
-  }, [actionFilter]);
-
   useEffect(() => {
+    let ignore = false;
+    async function fetchLogs() {
+      try {
+        const url =
+          actionFilter && actionFilter !== "ALL"
+            ? `/api/v1/audit-logs?action=${actionFilter}&pageSize=50`
+            : `/api/v1/audit-logs?pageSize=50`;
+
+        const res = await fetch(url);
+        const json = await res.json();
+        if (!ignore && json.success && json.data) {
+          setLogs(json.data);
+          if (json.meta) setTotal(json.meta.total);
+        }
+      } catch {
+        // Error handling
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+
     fetchLogs();
-  }, [fetchLogs]);
+    return () => {
+      ignore = true;
+    };
+  }, [actionFilter]);
 
   if (!isAdmin) {
     return (
@@ -225,7 +227,7 @@ export function AuditLogsClient() {
                 <span className="font-mono text-slate-300">{selectedLog.entityId}</span>
               </div>
 
-              {selectedLog.oldValue && (
+              {Boolean(selectedLog.oldValue) && (
                 <div>
                   <span className="text-slate-500 block mb-1">Previous State</span>
                   <pre className="bg-slate-950 p-3 rounded-xl border border-slate-800 overflow-x-auto font-mono text-[11px] text-slate-400">
@@ -234,7 +236,7 @@ export function AuditLogsClient() {
                 </div>
               )}
 
-              {selectedLog.newValue && (
+              {Boolean(selectedLog.newValue) && (
                 <div>
                   <span className="text-slate-500 block mb-1">Mutated State</span>
                   <pre className="bg-slate-950 p-3 rounded-xl border border-slate-800 overflow-x-auto font-mono text-[11px] text-emerald-400">

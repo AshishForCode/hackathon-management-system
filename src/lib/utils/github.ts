@@ -19,6 +19,20 @@ export interface GitHubRepoDetails {
   }>;
 }
 
+interface GitHubCommitItem {
+  sha?: string;
+  commit?: {
+    message?: string;
+    author?: { name?: string; date?: string; email?: string };
+    committer?: { name?: string; date?: string };
+  };
+  author?: { login?: string };
+}
+
+interface GitHubBranchItem {
+  name: string;
+}
+
 /**
  * Parses GitHub owner and repo name from URL.
  * Supports: https://github.com/owner/repo or github.com/owner/repo
@@ -94,7 +108,7 @@ export async function syncGitHubRepository(
     }
 
     // 3. Fetch Recent Commits
-    let commits: any[] = [];
+    let commits: GitHubCommitItem[] = [];
     try {
       const commitsRes = await fetch(
         `https://api.github.com/repos/${owner}/${repo}/commits?per_page=50`,
@@ -127,8 +141,8 @@ export async function syncGitHubRepository(
         headers,
       });
       if (branchRes.ok) {
-        const branchData = await branchRes.json();
-        branches = branchData.map((b: any) => b.name);
+        const branchData: GitHubBranchItem[] = await branchRes.json();
+        branches = branchData.map((b) => b.name);
       }
     } catch {
       // Non-blocking
@@ -179,8 +193,9 @@ export async function syncGitHubRepository(
         : new Date(),
       flaggedCommits,
     };
-  } catch (error: any) {
-    logger.warn("GitHub API error, using fallback snapshot", { error: error.message });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logger.warn("GitHub API error, using fallback snapshot", { error: msg });
     return generateFallbackSnapshot(owner, repo);
   }
 }

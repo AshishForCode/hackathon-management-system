@@ -289,8 +289,9 @@ export class SubmissionService {
       if (submission.repoUrl) {
         await this.syncRepoSnapshot(submission.id, submission.repoUrl, submission.hackathon);
       }
-    } catch (err: any) {
-      logger.warn("Repo sync warning during finalization", { error: err.message });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.warn("Repo sync warning during finalization", { error: errorMessage });
     }
 
     const updated = await prisma.$transaction(async (tx) => {
