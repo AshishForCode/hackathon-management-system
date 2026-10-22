@@ -1,0 +1,7 @@
+theme: jekyll-theme-slate
+title: JECRC Hackathon Management Platform
+description: Centralized Multi-Campus Hackathon Orchestration System for JECRC University & JECRC Foundation
+show_downloads: false
+google_analytics:
+plugins:
+  - jekyll-seo-tag
