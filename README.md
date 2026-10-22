@@ -1,6 +1,9 @@
 # Centralized Multi-Campus Hackathon Management Platform
 ### JECRC University & JECRC Foundation
 
+[![CI Pipeline](https://github.com/AshishForCode/hackathon-management-system/actions/workflows/ci.yml/badge.svg)](https://github.com/AshishForCode/hackathon-management-system/actions/workflows/ci.yml)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FAshishForCode%2Fhackathon-management-system&env=DATABASE_URL,NEXTAUTH_SECRET,NEXTAUTH_URL&envDescription=Required%20environment%20variables%20for%20database%20and%20authentication)
+
 A modern, production-grade, centralized web platform built to orchestrate and track the complete lifecycle of multi-campus hackathons:
 **Registration → Team Formation & Matchmaking → Repository Sync → Jury Rubric Scoring → Dynamic Leaderboard → Official Winners Announcement → Cryptographically Verifiable Certificates → Permanent Innovation Archive**.
 
