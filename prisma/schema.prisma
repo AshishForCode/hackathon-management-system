@@ -1,0 +1,778 @@
+// =============================================================================
+// Hackathon Management Platform - Prisma Schema
+// =============================================================================
+// Database: PostgreSQL
+// Covers: User, Campus, Profile, Hackathon, Track, Registration, Team,
+//         TeamMember, TeamInvite, Submission, SubmissionVersion, RepoSnapshot,
+//         Rubric, Criterion, MentorAssignment, MentorFeedback, JuryAssignment,
+//         Evaluation, Score, Result, Announcement, Notification, Certificate,
+//         AuditLog, HackathonSponsor, HackathonFAQ, CustomFormField
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum UserRole {
+  SUPER_ADMIN
+  CAMPUS_ADMIN
+  ORGANIZER
+  PARTICIPANT
+  MENTOR
+  JURY
+  GUEST
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum HackathonStatus {
+  DRAFT
+  REGISTRATION_OPEN
+  IN_PROGRESS
+  SUBMISSION_OPEN
+  EVALUATION
+  RESULTS_PUBLISHED
+  ARCHIVED
+}
+
+enum HackathonMode {
+  ONLINE
+  OFFLINE
+  HYBRID
+}
+
+enum RegistrationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  WAITLISTED
+  CANCELLED
+}
+
+enum TeamMemberRole {
+  LEADER
+  MEMBER
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum RepoProvider {
+  GITHUB
+  GITLAB
+}
+
+enum EvaluationRound {
+  SCREENING
+  SEMIFINAL
+  FINAL
+}
+
+enum NotificationType {
+  TEAM_INVITE
+  DEADLINE
+  ANNOUNCEMENT
+  RESULT
+  MENTOR_FEEDBACK
+  SYSTEM
+}
+
+enum CertificateType {
+  PARTICIPATION
+  WINNER
+  RUNNER_UP
+  SPECIAL_AWARD
+  MENTOR
+  JURY
+}
+
+enum SponsorTier {
+  TITLE
+  GOLD
+  SILVER
+  BRONZE
+  PARTNER
+}
+
+enum CustomFieldType {
+  TEXT
+  NUMBER
+  SELECT
+  MULTISELECT
+  CHECKBOX
+  FILE
+}
+
+// =============================================================================
+// CORE MODELS
+// =============================================================================
+
+/// User accounts for all roles. Auth.js sessions reference this model.
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  name          String
+  passwordHash  String?    // Null for OAuth-only users
+  role          UserRole   @default(PARTICIPANT)
+  status        UserStatus @default(PENDING_VERIFICATION)
+  emailVerified DateTime?
+  image         String?    // Avatar URL
+
+  // Campus association (nullable for super admins)
+  campusId String?
+  campus   Campus? @relation(fields: [campusId], references: [id])
+
+  // Auth.js required relations
+  accounts Account[]
+  sessions Session[]
+
+  // Profile
+  profile Profile?
+
+  // Hackathon relations
+  registrations     Registration[]
+  teamMemberships   TeamMember[]
+  sentInvites       TeamInvite[]     @relation("InviteSender")
+  receivedInvites   TeamInvite[]     @relation("InviteReceiver")
+  mentorAssignments MentorAssignment[]
+  mentorFeedbacks   MentorFeedback[]
+  juryAssignments   JuryAssignment[]
+  evaluations       Evaluation[]
+  notifications     Notification[]
+  certificates      Certificate[]
+  auditLogs         AuditLog[]
+
+  // Teams led by this user
+  ledTeams Team[] @relation("TeamLeader")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([campusId])
+  @@index([email])
+}
+
+/// Auth.js Account model for OAuth providers
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+/// Auth.js Session model
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Auth.js Verification Token for email verification and password reset
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+/// Extended student profile with academic and social info
+model Profile {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  enrollmentNo String? @unique
+  branch       String? // e.g., "Computer Science", "Electronics"
+  year         Int?    // Current year of study (1-4)
+  skills       String? // Comma-separated skills
+  github       String? // GitHub username
+  linkedin     String? // LinkedIn profile URL
+  bio          String? @db.Text
+  phone        String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enrollmentNo])
+}
+
+/// Campus entity — seeded with JECRC University & JECRC Foundation
+model Campus {
+  id       String  @id @default(cuid())
+  name     String  @unique // e.g., "JECRC University"
+  code     String  @unique // e.g., "JECRC-U"
+  location String? // City/address
+  active   Boolean @default(true)
+
+  users      User[]
+  hackathons Hackathon[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// HACKATHON MODELS
+// =============================================================================
+
+/// Core hackathon entity with full lifecycle status management
+model Hackathon {
+  id          String          @id @default(cuid())
+  title       String
+  slug        String          @unique
+  description String?         @db.Text
+  status      HackathonStatus @default(DRAFT)
+  mode        HackathonMode   @default(OFFLINE)
+
+  // Campus association
+  campusId      String?
+  campus        Campus?  @relation(fields: [campusId], references: [id])
+  isInterCampus Boolean  @default(false)
+
+  // Dates
+  registrationStart DateTime?
+  registrationEnd   DateTime?
+  startDate         DateTime?
+  endDate           DateTime?
+  submissionDeadline DateTime?
+
+  // Configuration
+  minTeamSize Int     @default(1)
+  maxTeamSize Int     @default(5)
+  venue       String?
+  rules       String? @db.Text
+  eligibility String? @db.Text
+  prizes      String? @db.Text
+  bannerImage String? // URL to banner image
+  website     String? // External website URL
+
+  // Relations
+  tracks        Track[]
+  registrations Registration[]
+  teams         Team[]
+  submissions   Submission[]
+  rubrics       Rubric[]
+  mentorAssignments MentorAssignment[]
+  juryAssignments   JuryAssignment[]
+  results       Result[]
+  announcements Announcement[]
+  sponsors      HackathonSponsor[]
+  faqs          HackathonFAQ[]
+  customFields  CustomFormField[]
+  certificates  Certificate[]
+
+  // Creator/organizer tracking
+  createdById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([campusId])
+  @@index([slug])
+  @@index([startDate])
+}
+
+/// Tracks/problem statements within a hackathon
+model Track {
+  id          String @id @default(cuid())
+  hackathonId String
+  name        String
+  description String? @db.Text
+  maxTeams    Int?    // Optional cap on teams per track
+
+  hackathon   Hackathon    @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  submissions Submission[]
+  results     Result[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([hackathonId, name])
+  @@index([hackathonId])
+}
+
+/// Sponsors for a hackathon
+model HackathonSponsor {
+  id          String      @id @default(cuid())
+  hackathonId String
+  name        String
+  logoUrl     String?
+  website     String?
+  tier        SponsorTier @default(PARTNER)
+
+  hackathon Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([hackathonId])
+}
+
+/// FAQs for a hackathon
+model HackathonFAQ {
+  id          String @id @default(cuid())
+  hackathonId String
+  question    String
+  answer      String @db.Text
+  sortOrder   Int    @default(0)
+
+  hackathon Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+
+  @@index([hackathonId])
+}
+
+/// Custom registration form fields per hackathon
+model CustomFormField {
+  id          String        @id @default(cuid())
+  hackathonId String
+  label       String
+  fieldType   CustomFieldType @default(TEXT)
+  isRequired  Boolean       @default(false)
+  options     Json?         // For SELECT/MULTISELECT: ["Option A", "Option B"]
+  sortOrder   Int           @default(0)
+
+  hackathon Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+
+  @@index([hackathonId])
+}
+
+// =============================================================================
+// REGISTRATION & TEAM MODELS
+// =============================================================================
+
+/// Participant registration for a specific hackathon
+model Registration {
+  id           String             @id @default(cuid())
+  userId       String
+  hackathonId  String
+  status       RegistrationStatus @default(PENDING)
+  customFields Json?              // Answers to CustomFormFields
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hackathon Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+
+  registeredAt DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // One registration per user per hackathon
+  @@unique([userId, hackathonId])
+  @@index([hackathonId])
+  @@index([status])
+}
+
+/// Team within a hackathon
+model Team {
+  id                String  @id @default(cuid())
+  hackathonId       String
+  name              String
+  inviteCode        String  @unique @default(cuid())
+  leaderId          String
+  locked            Boolean @default(false)
+  lookingForMembers Boolean @default(false)
+  requiredSkills    String? // Comma-separated skills needed
+
+  hackathon   Hackathon          @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  leader      User               @relation("TeamLeader", fields: [leaderId], references: [id])
+  members     TeamMember[]
+  invites     TeamInvite[]
+  submissions Submission[]
+  mentorAssignments MentorAssignment[]
+  mentorFeedbacks   MentorFeedback[]
+  results     Result[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Team name unique within a hackathon
+  @@unique([hackathonId, name])
+  @@index([hackathonId])
+  @@index([inviteCode])
+  @@index([lookingForMembers])
+}
+
+/// Team membership junction table
+model TeamMember {
+  id     String         @id @default(cuid())
+  teamId String
+  userId String
+  role   TeamMemberRole @default(MEMBER)
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  joinedAt DateTime @default(now())
+
+  // One membership per user per team
+  @@unique([teamId, userId])
+  @@index([userId])
+}
+
+/// Team invite (sent by team member to another user)
+model TeamInvite {
+  id        String       @id @default(cuid())
+  teamId    String
+  inviterId String
+  inviteeId String?      // Null if invite is by email (user not yet registered)
+  inviteeEmail String?   // Email for unregistered invitees
+  status    InviteStatus @default(PENDING)
+  expiresAt DateTime?
+
+  team    Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  inviter User @relation("InviteSender", fields: [inviterId], references: [id])
+  invitee User? @relation("InviteReceiver", fields: [inviteeId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([teamId])
+  @@index([inviteeId])
+  @@index([status])
+}
+
+// =============================================================================
+// SUBMISSION & REPOSITORY MODELS
+// =============================================================================
+
+/// Project submission by a team for a hackathon
+model Submission {
+  id              String       @id @default(cuid())
+  teamId          String
+  hackathonId     String
+  trackId         String?
+  title           String
+  description     String?      @db.Text
+  techStack       String?      // Comma-separated technologies
+  demoVideoUrl    String?
+  presentationUrl String?
+  repoUrl         String?
+  repoProvider    RepoProvider? @default(GITHUB)
+  isFinal         Boolean      @default(false)
+
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  hackathon Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  track     Track?    @relation(fields: [trackId], references: [id])
+
+  versions    SubmissionVersion[]
+  repoSnapshot RepoSnapshot?
+  evaluations Evaluation[]
+
+  submittedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // One submission per team per hackathon
+  @@unique([teamId, hackathonId])
+  @@index([hackathonId])
+  @@index([trackId])
+}
+
+/// Versioned snapshots of a submission for audit trail
+model SubmissionVersion {
+  id           String @id @default(cuid())
+  submissionId String
+  version      Int
+  snapshot     Json   // Full submission state at this version
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([submissionId, version])
+  @@index([submissionId])
+}
+
+/// GitHub/GitLab repository snapshot — synced periodically
+model RepoSnapshot {
+  id            String   @id @default(cuid())
+  submissionId  String   @unique
+  totalCommits  Int      @default(0)
+  contributors  Int      @default(0)
+  languages     Json?    // { "TypeScript": 60, "CSS": 30, "HTML": 10 }
+  readme        String?  @db.Text
+  lastActivity  DateTime?
+  stars         Int      @default(0)
+  branches      Json?    // ["main", "dev", "feature/auth"]
+  flaggedCommits Json?   // Commits outside hackathon window
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  syncedAt  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// =============================================================================
+// EVALUATION MODELS
+// =============================================================================
+
+/// Scoring rubric for a hackathon (can have multiple for different rounds)
+model Rubric {
+  id          String          @id @default(cuid())
+  hackathonId String
+  name        String          // e.g., "Screening Rubric", "Final Judging"
+  round       EvaluationRound @default(FINAL)
+  isActive    Boolean         @default(true)
+
+  hackathon  Hackathon   @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  criteria   Criterion[]
+  evaluations Evaluation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([hackathonId, round])
+  @@index([hackathonId])
+}
+
+/// Individual scoring criterion within a rubric
+model Criterion {
+  id          String @id @default(cuid())
+  rubricId    String
+  name        String  // e.g., "Innovation", "Technical Complexity"
+  description String? @db.Text
+  weight      Float   @default(1.0) // Weight multiplier for this criterion
+  maxScore    Int     @default(10)
+  sortOrder   Int     @default(0)
+
+  rubric Rubric  @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+  scores Score[]
+
+  @@index([rubricId])
+}
+
+/// Mentor assignment to a team within a hackathon
+model MentorAssignment {
+  id          String @id @default(cuid())
+  hackathonId String
+  mentorId    String
+  teamId      String
+
+  hackathon Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  mentor    User      @relation(fields: [mentorId], references: [id])
+  team      Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  assignedAt DateTime @default(now())
+
+  // One mentor per team per hackathon (a team can have one mentor)
+  @@unique([hackathonId, teamId])
+  @@index([mentorId])
+}
+
+/// Mentor feedback/check-in log
+model MentorFeedback {
+  id       String @id @default(cuid())
+  mentorId String
+  teamId   String
+  feedback String @db.Text
+
+  mentor User @relation(fields: [mentorId], references: [id])
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([teamId])
+  @@index([mentorId])
+}
+
+/// Jury assignment to a hackathon with conflict-of-interest tracking
+model JuryAssignment {
+  id             String  @id @default(cuid())
+  hackathonId    String
+  juryId         String
+  hasConflict    Boolean @default(false)
+  conflictReason String?
+
+  hackathon Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  jury      User      @relation(fields: [juryId], references: [id])
+
+  assignedAt DateTime @default(now())
+
+  @@unique([hackathonId, juryId])
+  @@index([juryId])
+}
+
+/// Evaluation: one jury member's scoring of one submission in one round
+model Evaluation {
+  id           String          @id @default(cuid())
+  submissionId String
+  juryId       String
+  rubricId     String
+  round        EvaluationRound @default(FINAL)
+  totalScore   Float?          // Computed: sum of weighted scores
+  comments     String?         @db.Text
+  isLocked     Boolean         @default(false) // Lock after submission
+
+  submission Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  jury       User       @relation(fields: [juryId], references: [id])
+  rubric     Rubric     @relation(fields: [rubricId], references: [id])
+  scores     Score[]
+
+  evaluatedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // One evaluation per jury per submission per round
+  @@unique([submissionId, juryId, round])
+  @@index([submissionId])
+  @@index([juryId])
+}
+
+/// Individual score for a criterion within an evaluation
+model Score {
+  id           String @id @default(cuid())
+  evaluationId String
+  criterionId  String
+  score        Float
+  comment      String? @db.Text
+
+  evaluation Evaluation @relation(fields: [evaluationId], references: [id], onDelete: Cascade)
+  criterion  Criterion  @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  @@unique([evaluationId, criterionId])
+  @@index([evaluationId])
+}
+
+// =============================================================================
+// RESULTS & ANNOUNCEMENTS
+// =============================================================================
+
+/// Final result/ranking for a team in a hackathon (optionally per track)
+model Result {
+  id              String   @id @default(cuid())
+  hackathonId     String
+  trackId         String?
+  teamId          String
+  rank            Int
+  finalScore      Float
+  award           String?  // e.g., "1st Place", "Best Innovation"
+  isManualOverride Boolean @default(false)
+  overrideReason  String?
+
+  hackathon    Hackathon     @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  track        Track?        @relation(fields: [trackId], references: [id])
+  team         Team          @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  certificates Certificate[]
+
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([hackathonId, teamId])
+  @@index([hackathonId])
+  @@index([rank])
+}
+
+/// Hackathon announcements (pinnable, timestamped)
+model Announcement {
+  id          String  @id @default(cuid())
+  hackathonId String
+  title       String
+  content     String  @db.Text
+  isPinned    Boolean @default(false)
+
+  hackathon Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+
+  publishedAt DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([hackathonId])
+  @@index([publishedAt])
+}
+
+// =============================================================================
+// NOTIFICATIONS & CERTIFICATES
+// =============================================================================
+
+/// In-app notification for a user
+model Notification {
+  id      String           @id @default(cuid())
+  userId  String
+  title   String
+  message String
+  type    NotificationType @default(SYSTEM)
+  link    String?          // Deep link to relevant page
+  isRead  Boolean          @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+/// Generated certificate (PDF) for participants, winners, mentors, jury
+model Certificate {
+  id          String          @id @default(cuid())
+  userId      String
+  hackathonId String
+  resultId    String?
+  type        CertificateType @default(PARTICIPATION)
+  fileUrl     String?         // Path/URL to generated PDF
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hackathon Hackathon @relation(fields: [hackathonId], references: [id], onDelete: Cascade)
+  result    Result?   @relation(fields: [resultId], references: [id])
+
+  generatedAt DateTime @default(now())
+
+  @@unique([userId, hackathonId, type])
+  @@index([userId])
+  @@index([hackathonId])
+}
+
+// =============================================================================
+// AUDIT LOG
+// =============================================================================
+
+/// Audit trail for admin actions (score overrides, status changes, etc.)
+model AuditLog {
+  id        String  @id @default(cuid())
+  userId    String? // Null for system-generated events
+  action    String  // e.g., "RESULT_OVERRIDE", "HACKATHON_STATUS_CHANGE"
+  entity    String  // e.g., "Result", "Hackathon"
+  entityId  String  // ID of the affected entity
+  oldValue  Json?   // Previous state
+  newValue  Json?   // New state
+  ipAddress String?
+
+  user User? @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+  @@index([createdAt])
+}
