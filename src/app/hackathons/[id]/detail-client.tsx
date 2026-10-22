@@ -248,10 +248,17 @@ export function HackathonDetailClient({ hackathonId }: { hackathonId: string }) 
             </Link>
 
             <Link
-              href={`/hackathons/${hackathon.slug || hackathon.id}/teams`}
+              href={`/hackathons/${hackathon.slug || hackathon.id}/submit`}
+              className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-center text-white bg-indigo-600 hover:bg-indigo-500 transition-colors shadow-sm"
+            >
+              Submit Project & Git Sync
+            </Link>
+
+            <Link
+              href={`/hackathons/${hackathon.slug || hackathon.id}/submissions`}
               className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-center text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-800 border border-slate-800 transition-colors"
             >
-              Browse Teams & Matchmaking
+              Project Showcase Gallery
             </Link>
 
             {isAdmin && (
