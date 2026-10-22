@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   Sparkles,
+  Archive,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/hackathons", label: "Hackathons", icon: Calendar },
+    { href: "/archive", label: "Project Archive", icon: Archive },
     ...(user
       ? [
           { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },

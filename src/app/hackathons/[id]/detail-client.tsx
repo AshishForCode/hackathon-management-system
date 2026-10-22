@@ -275,6 +275,13 @@ export function HackathonDetailClient({ hackathonId }: { hackathonId: string }) 
               Live Leaderboard & Standings
             </Link>
 
+            <Link
+              href={`/hackathons/${hackathon.slug || hackathon.id}/results`}
+              className="w-full py-2 px-4 rounded-xl text-xs font-semibold text-center text-emerald-300 hover:text-white bg-emerald-950/30 hover:bg-emerald-900/40 border border-emerald-800/40 transition-colors"
+            >
+              Winners & Hall of Fame
+            </Link>
+
             {isAdmin && (
               <>
                 <Link
